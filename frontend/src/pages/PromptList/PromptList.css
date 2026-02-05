@@ -1,0 +1,140 @@
+.prompt-list-page {
+  padding: 24px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.prompt-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.prompt-list-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.prompt-list-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.prompt-list-view-toggle {
+  display: flex;
+  gap: 4px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.view-toggle-btn {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-primary);
+}
+
+.view-toggle-btn.active {
+  background-color: var(--accent);
+  color: white;
+}
+
+.prompt-list-add-btn {
+  padding: 8px 16px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.prompt-list-add-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+.prompt-list-content {
+  display: grid;
+  gap: 20px;
+}
+
+.prompt-list-content.card {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.prompt-list-content.list {
+  grid-template-columns: 1fr;
+}
+
+.prompt-list-loading,
+.prompt-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: var(--text-secondary);
+}
+
+.prompt-list-empty button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.prompt-list-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.prompt-list-pagination button {
+  padding: 6px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prompt-list-pagination button:hover:not(:disabled) {
+  background-color: var(--glass-bg);
+  border-color: var(--accent);
+}
+
+.prompt-list-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prompt-list-pagination span {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
