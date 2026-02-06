@@ -1,9 +1,9 @@
 .sidebar {
   position: fixed;
   left: 0;
-  top: 0;
+  top: 40px; /* 为窗口控制按钮预留空间 */
   width: 280px;
-  height: 100vh;
+  height: calc(100vh - 40px); /* 减去顶部预留空间 */
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -12,9 +12,24 @@
   z-index: 100;
 }
 
+/* Mac系统下，侧边栏需要为左侧窗口控制按钮预留空间 */
+body.platform-mac .sidebar {
+  padding-left: 80px; /* Mac窗口控制按钮区域（12px位置 + 3个12px按钮 + gap） */
+}
+
 .sidebar-header {
   padding: 20px;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar-title {

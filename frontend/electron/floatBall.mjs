@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isDebug = isDev || process.env.ELECTRON_DEBUG === '1';
 
 let recreateMainWindowFn = null;
 let floatBallWindow = null;
@@ -114,6 +115,52 @@ class CustomWindowMove {
       this.isOpen = false;
       return;
     }
+
+    // 拖动结束时，确保窗口位置正确，确保悬浮球完全可见
+    const bounds = this.win.getBounds();
+    const display = screen.getDisplayMatching(bounds);
+    const { x: workAreaX, y: workAreaY, width: workAreaWidth, height: workAreaHeight } = display.workArea;
+    
+    const ballSize = 40;
+    const ballTopInWindow = 300;
+    const ballLeftInWindow = bounds.width / 2;
+    
+    let x = bounds.x;
+    let y = bounds.y;
+    let needAdjust = false;
+    
+    // 计算悬浮球在屏幕上的实际位置
+    const ballLeft = x + ballLeftInWindow - ballSize / 2;
+    const ballRight = x + ballLeftInWindow + ballSize / 2;
+    const ballTop = y + ballTopInWindow;
+    const ballBottom = y + ballTopInWindow + ballSize;
+    
+    // 限制窗口位置，确保悬浮球完全在工作区域内
+    if (ballLeft < workAreaX) {
+      x = workAreaX - ballLeftInWindow + ballSize / 2;
+      needAdjust = true;
+    }
+    if (ballRight > workAreaX + workAreaWidth) {
+      x = workAreaX + workAreaWidth - ballLeftInWindow - ballSize / 2;
+      needAdjust = true;
+    }
+    if (ballTop < workAreaY) {
+      y = workAreaY - ballTopInWindow;
+      needAdjust = true;
+    }
+    if (ballBottom > workAreaY + workAreaHeight) {
+      y = workAreaY + workAreaHeight - ballTopInWindow - ballSize;
+      needAdjust = true;
+    }
+    
+    if (needAdjust) {
+      try {
+        this.win.setPosition(Math.round(x), Math.round(y));
+      } catch (error) {
+        console.error('[悬浮球] 调整窗口位置失败:', error);
+      }
+    }
+    
     this.isOpen = false;
   }
 }
@@ -140,8 +187,33 @@ export function createFloatBallWindow() {
   const BALL_CENTER_X_IN_WINDOW = WINDOW_WIDTH / 2;
   const BALL_RIGHT_OFFSET = BALL_CENTER_X_IN_WINDOW + BALL_SIZE / 2;
   
-  const windowX = Math.floor(workAreaX + workAreaWidth - BALL_RIGHT_OFFSET);
-  const windowY = Math.floor(workAreaY + (workAreaHeight - WINDOW_HEIGHT) / 2);
+  // 计算窗口位置，使悬浮球右边缘贴着屏幕右边
+  let windowX = Math.floor(workAreaX + workAreaWidth - BALL_RIGHT_OFFSET);
+  let windowY = Math.floor(workAreaY + (workAreaHeight - WINDOW_HEIGHT) / 2);
+  
+  // 确保窗口不会超出屏幕边界
+  const ballLeft = windowX + BALL_CENTER_X_IN_WINDOW - BALL_SIZE / 2;
+  const ballRight = windowX + BALL_CENTER_X_IN_WINDOW + BALL_SIZE / 2;
+  const ballTop = windowY + BALL_TOP_IN_WINDOW;
+  const ballBottom = windowY + BALL_TOP_IN_WINDOW + BALL_SIZE;
+  
+  // 调整窗口位置，确保悬浮球完全在工作区域内
+  if (ballLeft < workAreaX) {
+    windowX = workAreaX - BALL_CENTER_X_IN_WINDOW + BALL_SIZE / 2;
+  }
+  if (ballRight > workAreaX + workAreaWidth) {
+    windowX = workAreaX + workAreaWidth - BALL_CENTER_X_IN_WINDOW - BALL_SIZE / 2;
+  }
+  if (ballTop < workAreaY) {
+    windowY = workAreaY - BALL_TOP_IN_WINDOW;
+  }
+  if (ballBottom > workAreaY + workAreaHeight) {
+    windowY = workAreaY + workAreaHeight - BALL_TOP_IN_WINDOW - BALL_SIZE;
+  }
+  
+  // 确保窗口本身不超出屏幕
+  windowX = Math.max(workAreaX, Math.min(windowX, workAreaX + workAreaWidth - WINDOW_WIDTH));
+  windowY = Math.max(workAreaY, Math.min(windowY, workAreaY + workAreaHeight - WINDOW_HEIGHT));
   
   floatBallWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -155,6 +227,7 @@ export function createFloatBallWindow() {
     resizable: false,
     movable: true,
     hasShadow: false,
+    backgroundColor: '#00000000',
     show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -168,11 +241,24 @@ export function createFloatBallWindow() {
   floatBallWindow.setMenuBarVisibility(false);
 
   if (isDev) {
+    floatBallWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+      console.error('[悬浮球] 加载失败:', code, desc, url);
+    });
+    floatBallWindow.webContents.on('did-finish-load', () => {
+      if (isDebug) {
+        floatBallWindow.webContents.openDevTools();
+      }
+    });
     floatBallWindow.loadURL('http://localhost:5173/float-ball.html');
   } else {
+    floatBallWindow.webContents.on('did-finish-load', () => {
+      if (isDebug) {
+        floatBallWindow.webContents.openDevTools();
+      }
+    });
     floatBallWindow.loadFile(path.join(__dirname, '../dist/float-ball.html'));
   }
-  
+
   floatBallWindow.show();
 
   floatBallWindow.on('closed', () => {
@@ -211,6 +297,7 @@ function registerFloatBallHandlers() {
     }
   });
 
+  // 主窗口已关闭仅悬浮球仍在时，点击悬浮球可重新创建并打开主窗口
   ipcMain.handle('float-ball-open-main', () => {
     const window = ensureMainWindowExists();
     if (window) {
@@ -287,6 +374,33 @@ function registerFloatBallHandlers() {
   ipcMain.handle('float-ball-copy-prompt', async (event, promptContent) => {
     // 复制到剪贴板的功能由前端实现，这里只是通知
     return { success: true };
+  });
+
+  // 通知主窗口显示复制成功提示
+  ipcMain.handle('float-ball-show-copy-success', (event, promptName) => {
+    const window = ensureMainWindowExists();
+    if (window && !window.isDestroyed()) {
+      // 打开主窗口
+      if (window.isMinimized()) {
+        window.restore();
+      }
+      window.show();
+      window.focus();
+      
+      // 延迟发送事件，确保主窗口已加载
+      setTimeout(() => {
+        if (window && !window.isDestroyed()) {
+          window.webContents.executeJavaScript(`
+            (function() {
+              const event = new CustomEvent('prompt-copied', { detail: { promptName: '${promptName.replace(/'/g, "\\'")}' } });
+              window.dispatchEvent(event);
+            })();
+          `).catch(err => {
+            console.error('[悬浮球] 发送复制成功事件失败:', err);
+          });
+        }
+      }, 500);
+    }
   });
 
   floatBallHandlersRegistered = true;

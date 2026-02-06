@@ -1,0 +1,101 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-container {
+  background: var(--glass-bg, rgba(10, 10, 10, 0.95));
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: modal-slide-up 0.3s ease-out;
+  position: relative;
+}
+
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #e0e0e0);
+  margin-bottom: 16px;
+}
+
+.modal-message {
+  font-size: 14px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  line-height: 1.6;
+  margin-bottom: 24px;
+  word-wrap: break-word;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+.modal-btn-confirm {
+  background-color: var(--accent, #FF3B00);
+  color: white;
+}
+
+.modal-btn-confirm:hover {
+  background-color: var(--accent-hover, #ff5c2e);
+}
+
+.modal-btn-cancel {
+  background-color: var(--bg-tertiary, #080808);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.modal-btn-cancel:hover {
+  background-color: var(--glass-bg, rgba(10, 10, 10, 0.8));
+  border-color: var(--accent, #FF3B00);
+}

@@ -22,7 +22,7 @@ interface PromptState {
     description?: string
     group_id?: number
     tag_ids?: number[]
-  }) => Promise<void>
+  }) => Promise<Prompt>
   updatePrompt: (id: number, data: Partial<{
     name: string
     content: string
@@ -58,7 +58,7 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       const response = await promptApi.getPrompts({
         page: params.page || state.page,
         page_size: params.page_size || state.pageSize,
-        group_id: params.group_id !== undefined ? params.group_id : state.selectedGroup || undefined,
+        group_id: params.group_id !== undefined ? params.group_id : (state.selectedGroup !== null ? state.selectedGroup : 0),
         tag_id: params.tag_id || (state.selectedTags.length === 1 ? state.selectedTags[0] : undefined),
         keyword: params.keyword !== undefined ? params.keyword : state.searchKeyword || undefined,
         sort_by: params.sort_by || 'created_at',
@@ -89,8 +89,11 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 
   createPrompt: async (data) => {
     try {
-      await promptApi.createPrompt(data)
+      const prompt = await promptApi.createPrompt(data)
       await get().fetchPrompts()
+      // 通知Sidebar刷新分组数量
+      window.dispatchEvent(new CustomEvent('prompt-changed'))
+      return prompt
     } catch (error) {
       console.error('创建Prompt失败:', error)
       throw error
@@ -102,6 +105,8 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       await promptApi.updatePrompt(id, data)
       await get().fetchPrompt(id)
       await get().fetchPrompts()
+      // 通知Sidebar刷新分组数量
+      window.dispatchEvent(new CustomEvent('prompt-changed'))
     } catch (error) {
       console.error('更新Prompt失败:', error)
       throw error
@@ -112,6 +117,8 @@ export const usePromptStore = create<PromptState>((set, get) => ({
     try {
       await promptApi.deletePrompt(id)
       await get().fetchPrompts()
+      // 通知Sidebar刷新分组数量
+      window.dispatchEvent(new CustomEvent('prompt-changed'))
       if (get().currentPrompt?.id === id) {
         set({ currentPrompt: null })
       }

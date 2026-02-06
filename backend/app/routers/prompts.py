@@ -32,8 +32,12 @@ async def get_prompts(
     query = db.query(Prompt).filter(Prompt.deleted_at.is_(None))
     
     # 分组筛选
-    if group_id:
-        query = query.filter(Prompt.group_id == group_id)
+    if group_id is not None:
+        if group_id == 0:
+            # group_id=0 表示查询未分组的prompts
+            query = query.filter(Prompt.group_id.is_(None))
+        else:
+            query = query.filter(Prompt.group_id == group_id)
     
     # 标签筛选
     if tag_id:

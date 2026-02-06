@@ -4,6 +4,8 @@
   height: 100vh;
   background-color: var(--bg-primary);
   overflow: hidden;
+  /* 为窗口控制按钮预留空间 */
+  padding-top: 40px;
 }
 
 .layout-main {
@@ -12,4 +14,9 @@
   flex-direction: column;
   overflow: hidden;
   margin-left: 280px; /* 侧边栏宽度 */
+}
+
+/* Windows系统下，主内容区需要为右侧窗口控制按钮预留空间 */
+body.platform-windows .layout-main {
+  padding-right: 0; /* 移除多余的空白 */
 }

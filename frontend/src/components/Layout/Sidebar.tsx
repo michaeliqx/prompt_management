@@ -1,19 +1,40 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePromptStore } from '../../store/promptStore'
-import { groupApi, PromptGroup } from '../../services/api'
+import { groupApi, promptApi, PromptGroup } from '../../services/api'
 import './Sidebar.css'
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate()
   const { prompts, searchKeyword, selectedGroup, setSearchKeyword, setSelectedGroup, fetchPrompts } = usePromptStore()
   const [groups, setGroups] = useState<PromptGroup[]>([])
+  const [ungroupedCount, setUngroupedCount] = useState<number>(0)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
 
   useEffect(() => {
     loadGroups()
+    loadUngroupedCount()
     fetchPrompts()
+  }, [])
+
+  useEffect(() => {
+    // 当分组切换时，重新加载分组列表和未分组数量
+    loadGroups()
+    loadUngroupedCount()
+  }, [selectedGroup])
+
+  // 监听prompt变化事件，当prompt被创建、删除或更新时，重新加载分组数量
+  useEffect(() => {
+    const handlePromptChange = () => {
+      loadGroups()
+      loadUngroupedCount()
+    }
+
+    window.addEventListener('prompt-changed', handlePromptChange)
+    return () => {
+      window.removeEventListener('prompt-changed', handlePromptChange)
+    }
   }, [])
 
   const loadGroups = async () => {
@@ -25,6 +46,21 @@ const Sidebar: React.FC = () => {
     }
   }
 
+  const loadUngroupedCount = async () => {
+    try {
+      // 直接调用API获取未分组的prompt总数（不使用关键词搜索，确保获取准确数量）
+      const response = await promptApi.getPrompts({ 
+        group_id: 0, 
+        page_size: 1, 
+        keyword: undefined,
+        tag_id: undefined
+      })
+      setUngroupedCount(response.total)
+    } catch (error) {
+      console.error('加载未分组数量失败:', error)
+    }
+  }
+
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) return
     try {
@@ -32,6 +68,7 @@ const Sidebar: React.FC = () => {
       setNewGroupName('')
       setShowCreateGroup(false)
       await loadGroups()
+      await loadUngroupedCount()
     } catch (error) {
       console.error('创建分组失败:', error)
     }
@@ -61,6 +98,7 @@ const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
+        <img src="/logo.png" alt="Prompt管理" className="sidebar-logo" />
         <h2 className="sidebar-title">Prompt管理</h2>
       </div>
 
@@ -113,7 +151,7 @@ const Sidebar: React.FC = () => {
         >
           <span>未分组</span>
           <span className="sidebar-group-count">
-            {prompts.filter(p => !p.group_id).length}
+            {ungroupedCount}
           </span>
         </div>
 
@@ -125,7 +163,7 @@ const Sidebar: React.FC = () => {
           >
             <span>{group.name}</span>
             <span className="sidebar-group-count">
-              {prompts.filter(p => p.group_id === group.id).length}
+              {group.prompt_count || 0}
             </span>
           </div>
         ))}

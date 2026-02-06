@@ -1,0 +1,13 @@
+/* 只定义CSS变量，不影响背景透明度 */
+:root {
+  --bg-primary: #050505;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #080808;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --text-primary: #e0e0e0;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --accent: #FF3B00;
+  --accent-hover: #ff5c2e;
+  --glass-bg: rgba(10, 10, 10, 1);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}

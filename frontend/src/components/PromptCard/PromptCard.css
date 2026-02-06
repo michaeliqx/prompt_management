@@ -49,6 +49,13 @@
   white-space: nowrap;
 }
 
+.prompt-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
 .prompt-card-group {
   font-size: 11px;
   padding: 2px 8px;
@@ -56,7 +63,43 @@
   color: var(--accent);
   border-radius: 12px;
   white-space: nowrap;
-  margin-left: 8px;
+}
+
+.prompt-card-copy-btn {
+  padding: 4px 10px;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.prompt-card-copy-btn:hover {
+  background-color: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+.prompt-card-copy-btn:active {
+  transform: scale(0.95);
+}
+
+.prompt-card-copy-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.prompt-card-copy-btn.copied {
+  background-color: #52c41a;
+}
+
+.prompt-card-copy-btn.copied:hover {
+  background-color: #52c41a;
+  transform: none;
 }
 
 .prompt-card-content {

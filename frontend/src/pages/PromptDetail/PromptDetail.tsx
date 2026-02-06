@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePromptStore } from '../../store/promptStore'
-import { groupApi, tagApi, imageApi, PromptGroup, PromptTag } from '../../services/api'
+import { groupApi, tagApi, imageApi, promptApi, PromptGroup, PromptTag } from '../../services/api'
+import { modalManager } from '../../components/Modal'
 import './PromptDetail.css'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 const PromptDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -11,6 +14,10 @@ const PromptDetail: React.FC = () => {
   const [isEditing, setIsEditing] = useState(id === 'new')
   const [groups, setGroups] = useState<PromptGroup[]>([])
   const [tags, setTags] = useState<PromptTag[]>([])
+  const [pendingImages, setPendingImages] = useState<File[]>([])
+  const [showCreateTag, setShowCreateTag] = useState(false)
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#1890ff')
   
   const [formData, setFormData] = useState({
     name: '',
@@ -35,7 +42,7 @@ const PromptDetail: React.FC = () => {
         content: currentPrompt.content,
         description: currentPrompt.description || '',
         group_id: currentPrompt.group_id || null,
-        tag_ids: currentPrompt.tags.map(t => t.id),
+        tag_ids: currentPrompt.tags?.map(t => t.id) ?? [],
       })
     }
   }, [currentPrompt])
@@ -61,10 +68,36 @@ const PromptDetail: React.FC = () => {
   const handleSave = async () => {
     try {
       if (id === 'new') {
-        await usePromptStore.getState().createPrompt(formData)
+        // 创建prompt
+        const createdPrompt = await promptApi.createPrompt({
+          name: formData.name,
+          content: formData.content,
+          description: formData.description || undefined,
+          group_id: formData.group_id ?? undefined,
+          tag_ids: formData.tag_ids,
+        })
+        // 如果有待上传的图片，上传它们
+        if (pendingImages.length > 0 && createdPrompt) {
+          for (const imageFile of pendingImages) {
+            try {
+              await imageApi.uploadImage(createdPrompt.id, imageFile)
+            } catch (error) {
+              console.error('上传图片失败:', error)
+            }
+          }
+          setPendingImages([])
+        }
+        await usePromptStore.getState().fetchPrompts()
         navigate('/')
       } else {
-        await updatePrompt(Number(id), formData)
+        await updatePrompt(Number(id), {
+          name: formData.name,
+          content: formData.content,
+          description: formData.description || undefined,
+          group_id: formData.group_id ?? undefined,
+          tag_ids: formData.tag_ids,
+        })
+        await fetchPrompt(Number(id))
         setIsEditing(false)
       }
     } catch (error) {
@@ -74,7 +107,8 @@ const PromptDetail: React.FC = () => {
 
   const handleDelete = async () => {
     if (!id || id === 'new') return
-    if (window.confirm('确定要删除这个Prompt吗？')) {
+    const confirmed = await modalManager.confirm('确定要删除这个Prompt吗？', '删除确认')
+    if (confirmed) {
       await deletePrompt(Number(id))
       navigate('/')
     }
@@ -84,19 +118,67 @@ const PromptDetail: React.FC = () => {
     if (!id || id === 'new') return
     try {
       await copyPrompt(Number(id))
-      alert('已复制到剪贴板')
+      // 发送复制成功事件，由 Layout 组件显示 Toast
+      window.dispatchEvent(new CustomEvent('prompt-copied', { 
+        detail: { promptName: currentPrompt?.name || 'Prompt' } 
+      }))
     } catch (error) {
       console.error('复制失败:', error)
     }
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!id || id === 'new' || !e.target.files?.[0]) return
+    if (!e.target.files?.[0]) return
+    
+    if (id === 'new') {
+      // 创建模式：将图片添加到待上传列表
+      setPendingImages([...pendingImages, e.target.files[0]])
+    } else {
+      // 编辑模式：直接上传
+      try {
+        await imageApi.uploadImage(Number(id), e.target.files[0])
+        await fetchPrompt(Number(id))
+      } catch (error) {
+        console.error('上传图片失败:', error)
+      }
+    }
+    // 重置input
+    e.target.value = ''
+  }
+
+  const handleRemovePendingImage = (index: number) => {
+    setPendingImages(pendingImages.filter((_, i) => i !== index))
+  }
+
+  const handleDeleteImage = async (imageId: number) => {
+    const confirmed = await modalManager.confirm('确定要删除这张效果图吗？', '删除确认')
+    if (!confirmed) return
     try {
-      await imageApi.uploadImage(Number(id), e.target.files[0])
-      await fetchPrompt(Number(id))
+      await imageApi.deleteImage(imageId)
+      if (id && id !== 'new') {
+        await fetchPrompt(Number(id))
+      }
     } catch (error) {
-      console.error('上传图片失败:', error)
+      console.error('删除图片失败:', error)
+      await modalManager.alert('删除图片失败，请重试', '错误')
+    }
+  }
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) {
+      await modalManager.alert('请输入标签名称', '提示')
+      return
+    }
+    try {
+      const newTag = await tagApi.createTag({ name: newTagName.trim(), color: newTagColor })
+      setTags([...tags, newTag])
+      setFormData({ ...formData, tag_ids: [...formData.tag_ids, newTag.id] })
+      setNewTagName('')
+      setNewTagColor('#1890ff')
+      setShowCreateTag(false)
+    } catch (error: any) {
+      console.error('创建标签失败:', error)
+      await modalManager.alert(error.response?.data?.detail || '创建标签失败', '错误')
     }
   }
 
@@ -111,20 +193,27 @@ const PromptDetail: React.FC = () => {
           ← 返回
         </button>
         <div className="prompt-detail-actions">
-          {id !== 'new' && (
+          {id !== 'new' && !isEditing && (
             <>
-              <button className="prompt-detail-copy-btn" onClick={handleCopy}>
-                复制
-              </button>
               <button className="prompt-detail-edit-btn" onClick={() => setIsEditing(!isEditing)}>
-                {isEditing ? '取消' : '编辑'}
+                编辑
               </button>
               <button className="prompt-detail-delete-btn" onClick={handleDelete}>
                 删除
               </button>
             </>
           )}
-          {isEditing && (
+          {id !== 'new' && isEditing && (
+            <>
+              <button className="prompt-detail-edit-btn" onClick={() => setIsEditing(false)}>
+                取消
+              </button>
+              <button className="prompt-detail-save-btn" onClick={handleSave}>
+                保存
+              </button>
+            </>
+          )}
+          {id === 'new' && (
             <button className="prompt-detail-save-btn" onClick={handleSave}>
               保存
             </button>
@@ -198,6 +287,107 @@ const PromptDetail: React.FC = () => {
                       <span style={{ color: tag.color }}>{tag.name}</span>
                     </label>
                   ))}
+                  <button
+                    type="button"
+                    className="prompt-detail-create-tag-btn"
+                    onClick={() => setShowCreateTag(!showCreateTag)}
+                  >
+                    + 新建标签
+                  </button>
+                </div>
+                {showCreateTag && (
+                  <div className="prompt-detail-create-tag-form">
+                    <input
+                      type="text"
+                      placeholder="标签名称"
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      className="prompt-detail-create-tag-input"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateTag()
+                        } else if (e.key === 'Escape') {
+                          setShowCreateTag(false)
+                          setNewTagName('')
+                          setNewTagColor('#1890ff')
+                        }
+                      }}
+                    />
+                    <div className="prompt-detail-create-tag-color-wrapper">
+                      <button
+                        type="button"
+                        className="prompt-detail-create-tag-color-btn"
+                        style={{ backgroundColor: newTagColor }}
+                        onClick={() => {
+                          const colorInput = document.createElement('input')
+                          colorInput.type = 'color'
+                          colorInput.value = newTagColor
+                          colorInput.onchange = (e: any) => setNewTagColor(e.target.value)
+                          colorInput.click()
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateTag}
+                      className="prompt-detail-create-tag-submit"
+                    >
+                      创建
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateTag(false)
+                        setNewTagName('')
+                        setNewTagColor('#1890ff')
+                      }}
+                      className="prompt-detail-create-tag-cancel"
+                    >
+                      取消
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="prompt-detail-field">
+                <label>效果图</label>
+                {id === 'new' && pendingImages.length > 0 && (
+                  <div className="prompt-detail-pending-images">
+                    {pendingImages.map((file, index) => (
+                      <div key={index} className="prompt-detail-pending-image-item">
+                        <img src={URL.createObjectURL(file)} alt={file.name} />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePendingImage(index)}
+                          className="prompt-detail-remove-image-btn"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {id !== 'new' && currentPrompt?.images && currentPrompt.images.length > 0 && (
+                  <div className="prompt-detail-pending-images">
+                    {currentPrompt.images.map((image) => (
+                      <div key={image.id} className="prompt-detail-pending-image-item">
+                        <img src={`${API_BASE_URL}/${image.file_path}`} alt={image.file_name} />
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteImage(image.id)}
+                          className="prompt-detail-remove-image-btn"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="prompt-detail-upload">
+                  <label>
+                    <span>上传效果图</span>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                  </label>
                 </div>
               </div>
             </>
@@ -211,9 +401,9 @@ const PromptDetail: React.FC = () => {
                 </div>
               )}
 
-              {currentPrompt?.tags.length > 0 && (
+              {(currentPrompt?.tags?.length ?? 0) > 0 && (
                 <div className="prompt-detail-tags">
-                  {currentPrompt.tags.map(tag => (
+                  {(currentPrompt?.tags ?? []).map(tag => (
                     <span
                       key={tag.id}
                       className="prompt-detail-tag"
@@ -225,8 +415,15 @@ const PromptDetail: React.FC = () => {
                 </div>
               )}
 
-              <div className="prompt-detail-content-text">
-                <pre>{currentPrompt?.content}</pre>
+              <div className="prompt-detail-content-text-wrapper">
+                <div className="prompt-detail-content-text">
+                  <pre>{currentPrompt?.content}</pre>
+                </div>
+                {id !== 'new' && !isEditing && (
+                  <button className="prompt-detail-copy-btn-inline" onClick={handleCopy} title="复制Prompt内容">
+                    复制
+                  </button>
+                )}
               </div>
 
               {currentPrompt?.description && (
@@ -242,7 +439,7 @@ const PromptDetail: React.FC = () => {
                   <div className="prompt-detail-images-grid">
                     {currentPrompt.images.map(image => (
                       <div key={image.id} className="prompt-detail-image-item">
-                        <img src={`http://localhost:8000/${image.file_path}`} alt={image.file_name} />
+                        <img src={`${API_BASE_URL}/${image.file_path}`} alt={image.file_name} />
                       </div>
                     ))}
                   </div>
@@ -258,7 +455,7 @@ const PromptDetail: React.FC = () => {
               {id !== 'new' && (
                 <div className="prompt-detail-upload">
                   <label>
-                    上传效果图
+                    <span>上传效果图</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
                   </label>
                 </div>

@@ -2,7 +2,16 @@
   "name": "prompt-management",
   "version": "1.0.0",
   "description": "Prompt管理工具",
-  "main": "electron/main.js",
+  "main": "electron/main.mjs",
+  "build": {
+    "appId": "com.prompt-management.app",
+    "productName": "Prompt管理工具",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "electron/**/*"],
+    "icon": "public/logo.png",
+    "win": { "target": "nsis" },
+    "mac": { "category": "public.app-category.productivity" }
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   floatBallClose: () => ipcRenderer.invoke('float-ball-close'),
   floatBallOpenMain: () => ipcRenderer.invoke('float-ball-open-main'),
   floatBallNavigate: (route) => ipcRenderer.invoke('float-ball-navigate', route),
+  floatBallShowCopySuccess: (promptName) => ipcRenderer.invoke('float-ball-show-copy-success', promptName),
+  // 窗口控制相关
+  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
+  windowClose: () => ipcRenderer.invoke('window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
 })

@@ -14,7 +14,26 @@ router = APIRouter()
 async def get_groups(db: Session = Depends(get_db)):
     """获取分组列表"""
     groups = db.query(PromptGroup).order_by(PromptGroup.sort_order, PromptGroup.created_at).all()
-    return [PromptGroupResponse.model_validate(group) for group in groups]
+    result = []
+    for group in groups:
+        # 计算每个分组的prompt数量
+        prompt_count = db.query(Prompt).filter(
+            Prompt.group_id == group.id,
+            Prompt.deleted_at.is_(None)
+        ).count()
+        group_dict = PromptGroupResponse.model_validate(group).model_dump()
+        group_dict['prompt_count'] = prompt_count
+        result.append(PromptGroupResponse(**group_dict))
+    return result
+
+@router.get("/ungrouped-count", response_model=dict)
+async def get_ungrouped_count(db: Session = Depends(get_db)):
+    """获取未分组的prompt数量"""
+    count = db.query(Prompt).filter(
+        Prompt.group_id.is_(None),
+        Prompt.deleted_at.is_(None)
+    ).count()
+    return {"count": count}
 
 @router.post("", response_model=PromptGroupResponse)
 async def create_group(group_data: PromptGroupCreate, db: Session = Depends(get_db)):

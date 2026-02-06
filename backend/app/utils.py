@@ -17,8 +17,12 @@ def save_upload_file(upload_file: UploadFile, prompt_id: int) -> dict:
         "file_type": str
     }
     """
-    # 创建上传目录
-    upload_dir = Path(settings.UPLOAD_DIR) / str(prompt_id)
+    # 获取项目根目录（backend目录的父目录）
+    backend_dir = Path(__file__).parent.parent.absolute()
+    project_root = backend_dir.parent
+    
+    # 创建上传目录（相对于项目根目录）
+    upload_dir = project_root / settings.UPLOAD_DIR / str(prompt_id)
     upload_dir.mkdir(parents=True, exist_ok=True)
     
     # 生成唯一文件名
@@ -32,7 +36,7 @@ def save_upload_file(upload_file: UploadFile, prompt_id: int) -> dict:
         f.write(content)
     
     # 返回相对路径（相对于项目根目录）
-    relative_path = str(file_path).replace("\\", "/")
+    relative_path = str(file_path.relative_to(project_root)).replace("\\", "/")
     
     return {
         "file_path": relative_path,
@@ -42,10 +46,17 @@ def save_upload_file(upload_file: UploadFile, prompt_id: int) -> dict:
     }
 
 def delete_file(file_path: str) -> bool:
-    """删除文件"""
+    """删除文件（file_path是相对于项目根目录的路径）"""
     try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # 获取项目根目录
+        backend_dir = Path(__file__).parent.parent.absolute()
+        project_root = backend_dir.parent
+        
+        # 构建完整路径
+        full_path = project_root / file_path
+        
+        if full_path.exists():
+            full_path.unlink()
             return True
         return False
     except Exception as e:
